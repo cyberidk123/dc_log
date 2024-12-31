@@ -1,57 +1,92 @@
-local webhook = {
-    logging = "https://discord.com/api/webhooks/1323524281484836884/AuWUZ7ZA7IJTKETcJ6LQ8qrFHxlWMuedoOGntvb5udQVGyyeMhMrB-D5zLQWQtwPSObN",
-}
+Config = {}
 
-local image = {
-    logging = "https://discord.com/api/webhooks/1323524281484836884/AuWUZ7ZA7IJTKETcJ6LQ8qrFHxlWMuedoOGntvb5udQVGyyeMhMrB-D5zLQWQtwPSObN",
-}
+function SendWebHook(link, title, color, message)
+    local embedMsg = {}
+    timestamp = os.date("%c")
+    embedMsg = {
+        {
+            ["color"] = color,
+            ["title"] = title,
+            ["description"] =  ""..message.."",
+            ["footer"] ={
+                ["text"] = timestamp.." (Server Time).",
+            },
+        }
+    }
+    PerformHttpRequest(link,
+    function(err, text, headers)end, 'POST', json.encode({username = Config.name, avatar_url= Config.logo ,embeds = embedMsg}), { ['Content-Type']= 'application/json' })
+end
 
-AddEventHandler('connecting', function ()
-    LogToDiscord("log", "Connection", "**" .. GetPlayerName(source) .. "**", 65280)
+
+AddEventHandler('z64_logs:sendWebhook', function(data)
+    if data.link == nil then
+        link = Config.hLink
+    else
+        link = data.link
+    end
+    title = data.title
+    color = data.color
+    message = data.message
+    SendWebHook(link, title, color, message)
 end)
-AddEventHandler('playerDropped', function(reason) 
-    LogToDiscord("log", "Disconnection", "**" .. GetPlayerName(source) .. "** *( " .. reason.." )*", 16711680) 
-    end)
 
+Citizen.CreateThread(function()
+    if Config.joinLeaveLog then
+        if Config.joinLeaveLogLink == '' then
+            print('^7[^1INFO^7]: Please set a WebHook URL in the config.lua to log players joining and leaving.')
+        else
+            print('test 1')
+        AddEventHandler('playerJoining', function()
+            local id = source
+            local ids = GetPlayerIdentifier(id, steam)
+            local plyName = GetPlayerName(id)
+            local whData = {
+                link = Config.joinLeaveLogLink,
+                title = plyName.." JOINING",
+                color = 655104,
+                message = 
+                '**[User]: **'..plyName..'\n'..
+                '**[Identifier]: **'..ids..'\n'..
+                '**[Asigned ID]: **'..id..'\n'
+            }
+            TriggerEvent('z64_logs:sendWebhook', whData)
+        end)
 
-RegisterServerEvent('playerDeath')
-AddEventHandler('playerDeath',function(msg)
-    LogToDiscord("log", "Dead", msg, 16711680)
-end)
-
-
-function GetIdFromSource(Type, ID)
-    local ID = GetPlayerIdentifier(ID)
-    for i, CurrentID in pairs(ID)  do
-        local SID = stringsplit(CurrentID, ":")
-        if (ID[1]:lower() == string.lower(Type)) then
-            return ID[2]:lower()
+        AddEventHandler('playerDropped', function(reason)
+            local id = source
+            local ids = GetPlayerIdentifier(id, steam)
+            local plyName = GetPlayerName(id)
+            local reason = reason
+            local whData = {
+                link = Config.joinLeaveLogLink,
+                title = plyName.." LEFT",
+                color = 16711689,
+                message = 
+                '**[User]: **'..plyName..'\n'..
+                '**[Identifier]: **'..ids..'\n'..
+                '**[Reason]: **'..reason..'\n'
+            }
+            TriggerEvent('z64_logs:sendWebhook', whData)
+        end)
         end
     end
-    return nil
-end
+end)
 
-function stringsplit(input, seperator)
-	if seperator == nil then seperator = '%s' end 
-	local t={} ; i=1
-	for str in string.gmatch(input, '([^'..seperator..']+)') do 
-        t[i] = str i = i + 1
+AddEventHandler('onResourceStart', function(resource)
+    resName = GetCurrentResourceName()
+    if resource == resName then
+        if Config.hlink == '' then
+            print('^7[^1INFO^7]: No default WebHook URL detected. Please configure the script correctly.')
+        else 
+            print('^7[^2INFO^7]: '..resName..' initiated succesfully.')
+            local whData = {
+                link = Config.hlink,
+                title = "LOGGER STARTED",
+                color = 4521728,
+                message = 
+                '**'..resName..'** HAS STARTED SUCCESFULLY.'
+            }
+            TriggerEvent('z64_logs:sendWebhook', whData)
         end
-	return t
-end
-
-function LogToDiscord(hook, name, msg, color)
-    local connect = { { ["color"] = color, ["title"] = "**"..name.."** - " ..msg}}
-
-    print('^4[Webhook '..hook..'] : '..name.." - "..msg)
-    PerformHttpRequest(webhook[hook], function(err, text, headers) end, 'POST', json.encode({username = "Holliday\'s", embeds = connect, avatar_url = image[hook]}), { ['Content-Type'] = 'application/json' })
-end
-
-LogToDiscord("log", "Reboot", "Server On", 65280)
-
-exports("LogToDiscord", LogToDiscord)
-
-RegisterServerEvent('LogToDiscordSRV')
-AddEventHandler('LogToDiscordSRV', function(hook, name, message, color) 
-    LogToDiscord(hook, name, message, color) 
+    end
 end)
